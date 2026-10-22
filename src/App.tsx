@@ -8,8 +8,10 @@ import { Legend } from './components/Legend'
 import { LOAD_MAX, LOAD_MIN, MAX_DEPARTURE_DAYS, PlanPanel } from './components/PlanPanel'
 import { ResultsPanel } from './components/ResultsPanel'
 import { SearchPanel } from './components/SearchPanel'
+import { Toasts } from './components/Toasts'
 import { formatDuration, formatMiles, miles } from './lib/format'
 import { MapController, type PointKind } from './map/MapController'
+import { useToasts } from './state/toasts'
 import { initialTrip, tripReducer, type TripState } from './state/trip'
 
 const MIN_STAGE_MS = 600 // keep fast stages on screen long enough to read
@@ -25,6 +27,7 @@ export default function App() {
   const [locating, setLocating] = useState<PointKind | null>(null)
   const [howOpen, setHowOpen] = useState(false)
   const [satellite, setSatellite] = useState(false)
+  const { toasts, notify, dismiss } = useToasts()
   const mapEl = useRef<HTMLDivElement>(null)
   const originInput = useRef<HTMLInputElement>(null)
   const tripRef = useRef(trip)
@@ -84,7 +87,9 @@ export default function App() {
         analysis = await request
       } catch (err) {
         if (signal.aborted) return
-        dispatch({ type: 'search-failed', step: 'weather', error: asApiError(err) })
+        const error = asApiError(err)
+        notify('error', 'Weather check failed', `${error.message} Your routes are kept — use “Retry weather check”.`)
+        dispatch({ type: 'search-failed', step: 'weather', error })
         return
       }
       dispatch({ type: 'weather-done', ms: arrivedAt - started })
@@ -107,10 +112,13 @@ export default function App() {
           dispatch({ type: 'heatmap', heatmap })
         })
         .catch((err) => {
-          if (!signal.aborted) dispatch({ type: 'heatmap', heatmap: null, error: `Weather overlay unavailable: ${asApiError(err).message}` })
+          if (signal.aborted) return
+          const message = asApiError(err).message
+          notify('warning', 'Weather overlay unavailable', `${message} Routes and checkpoints are unaffected.`)
+          dispatch({ type: 'heatmap', heatmap: null, error: `Weather overlay unavailable: ${message}` })
         })
     },
-    [map],
+    [map, notify],
   )
 
   const startSearch = useCallback(
@@ -139,6 +147,7 @@ export default function App() {
         if (signal.aborted) return
         const error = asApiError(err)
         map.reset()
+        notify('error', errorTitle(error), error.message)
         if (error.code === 'point_not_routable' || error.code === 'validation_error') {
           dispatch({ type: 'edit' })
           const field = error.field === 'destination' ? 'destination' : error.field === 'origin' ? 'origin' : 'form'
@@ -155,12 +164,13 @@ export default function App() {
       if (signal.aborted) return
       await runAnalysis(plan, state.interval, signal, true)
     },
-    [map, runAnalysis],
+    [map, runAnalysis, notify],
   )
 
   const submit = () => {
     const error = validate(trip)
     if (error) {
+      notify('warning', 'Check the trip details', error.message)
       dispatch({ type: 'form-error', error })
       return
     }
@@ -194,7 +204,8 @@ export default function App() {
       await map.showScored(analysis.routes)
       dispatch({ type: 'reanalyzed', analysis })
       map.showResult(tripRef.current.selected ?? analysis.recommendation.route_id, null)
-    } catch {
+    } catch (err) {
+      notify('error', 'Couldn’t update checkpoints', asApiError(err).message)
       dispatch({ type: 'reanalyze-failed' })
     }
   }
@@ -234,6 +245,7 @@ export default function App() {
 
   const useMyLocation = (kind: PointKind) => {
     if (!navigator.geolocation) {
+      notify('warning', 'Location unavailable', 'Location isn’t available in this browser.')
       dispatch({ type: 'form-error', error: { field: kind, message: 'Location isn’t available in this browser.' } })
       return
     }
@@ -258,6 +270,7 @@ export default function App() {
           err.code === err.PERMISSION_DENIED
             ? 'Location access is off. Type an address or click the map instead.'
             : 'Couldn’t get your location. Type an address or click the map instead.'
+        notify('warning', 'Location unavailable', message)
         dispatch({ type: 'form-error', error: { field: kind, message } })
       },
       { enableHighAccuracy: false, timeout: 10_000, maximumAge: 300_000 },
@@ -387,8 +400,24 @@ export default function App() {
       )}
 
       <HowItWorks open={howOpen} onClose={() => setHowOpen(false)} />
+      <Toasts toasts={toasts} onDismiss={dismiss} />
     </main>
   )
+}
+
+const ERROR_TITLES: Record<string, string> = {
+  point_not_routable: 'Can’t route to that point',
+  no_route_found: 'No truck route found',
+  validation_error: 'Check the trip details',
+  rate_limited: 'Too many searches',
+  upstream_timeout: 'The routing service is slow',
+  upstream_unavailable: 'A data service is unavailable',
+  network: 'Can’t reach the server',
+  timeout: 'The server took too long',
+}
+
+function errorTitle(error: ApiError): string {
+  return ERROR_TITLES[error.code] ?? 'Something went wrong'
 }
 
 function asApiError(err: unknown): ApiError {

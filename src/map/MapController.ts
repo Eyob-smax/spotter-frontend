@@ -209,8 +209,10 @@ export class MapController {
         'text-font': ['case', ['get', 'highlight'], ['literal', ['Noto Sans Bold']], ['literal', ['Noto Sans Regular']]],
         'text-size': ['case', ['get', 'highlight'], 13, 11.5],
         'text-anchor': 'center',
-        'text-allow-overlap': true,
-        'symbol-sort-key': ['case', ['get', 'highlight'], 1, 0],
+        // Colliding labels are hidden; the recommended route's label is placed first so it always wins.
+        'text-allow-overlap': false,
+        'text-padding': 6,
+        'symbol-sort-key': ['case', ['get', 'highlight'], 0, 1],
       },
       paint: {
         'text-color': ['case', ['get', 'highlight'], '#FFFFFF', INK],
@@ -742,6 +744,7 @@ function checkpointCard(routeId: string, cp: Checkpoint, route: Route | undefine
   const badge = el('span', `risk-badge risk-${cp.risk}`, RISK_LABEL[cp.risk].toUpperCase())
   head.append(badge)
   card.append(head)
+  if (cp.weather?.conditions) card.append(el('p', 'cp-conditions', cp.weather.conditions))
 
   const rows = el('dl', 'cp-rows')
   const row = (k: string, v: string, extra?: string) => {
@@ -761,6 +764,9 @@ function checkpointCard(routeId: string, cp: Checkpoint, route: Route | undefine
     row('Wind', `${Math.round(cp.weather.wind_mph)} mph`, cp.weather.gust_mph != null ? `gusts ${Math.round(cp.weather.gust_mph)} mph` : undefined)
     row('Rain', `${cp.weather.rain_in_hr.toFixed(2)} in/hr`)
     row('Snow', `${cp.weather.snow_in_hr.toFixed(2)} in/hr`)
+    if (cp.weather.temperature_f != null) row('Temp', `${Math.round(cp.weather.temperature_f)}°F`, cp.weather.temperature_f <= 32 ? '(freezing)' : undefined)
+    if (cp.weather.visibility_mi != null) row('Visib.', `${cp.weather.visibility_mi.toFixed(1)} mi`)
+    if (cp.weather.precip_probability != null) row('Precip', `${Math.round(cp.weather.precip_probability)}% chance`)
   }
   card.append(rows)
 

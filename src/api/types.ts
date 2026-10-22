@@ -48,6 +48,20 @@ export interface Factor {
   decisive: boolean
 }
 
+/** Forecast at a checkpoint's ETA. Wind, rain and snow drive risk; the rest is informational. */
+export interface Weather {
+  wind_mph: number
+  gust_mph: number | null
+  rain_in_hr: number
+  snow_in_hr: number
+  forecast_time: string
+  temperature_f: number | null
+  precip_probability: number | null
+  visibility_mi: number | null
+  weather_code: number | null
+  conditions: string | null
+}
+
 export interface Checkpoint {
   index: number
   mile: number
@@ -56,13 +70,7 @@ export interface Checkpoint {
   lon: number
   eta: string
   progress: number
-  weather: {
-    wind_mph: number
-    gust_mph: number | null
-    rain_in_hr: number
-    snow_in_hr: number
-    forecast_time: string
-  } | null
+  weather: Weather | null
   risk: RiskOrUnknown
   score: number | null
   factors: Factor[]

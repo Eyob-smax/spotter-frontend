@@ -9,6 +9,12 @@ export interface RouteConditions {
   maxGust: number | null
   maxRain: number | null
   maxSnow: number | null
+  minTemp: number | null
+  maxTemp: number | null
+  minVisibility: number | null
+  maxPrecipChance: number | null
+  /** Conditions along the route by miles covered, most common first. */
+  conditions: { label: string; miles: number }[]
   /** The riskiest checkpoint (first one at the highest level), or null if the route is all Low/unknown. */
   worst: Checkpoint | null
 }
@@ -16,9 +22,20 @@ export interface RouteConditions {
 /** Worst weather the truck meets along a route, taken from each checkpoint's forecast at its ETA. */
 export function routeConditions(checkpoints: Checkpoint[]): RouteConditions {
   const known = checkpoints.filter((c) => c.weather)
+  const values = (pick: (c: Checkpoint) => number | null | undefined) =>
+    known.map(pick).filter((v): v is number => v != null)
   const max = (pick: (c: Checkpoint) => number | null | undefined) => {
-    const values = known.map(pick).filter((v): v is number => v != null)
-    return values.length ? Math.max(...values) : null
+    const v = values(pick)
+    return v.length ? Math.max(...v) : null
+  }
+  const min = (pick: (c: Checkpoint) => number | null | undefined) => {
+    const v = values(pick)
+    return v.length ? Math.min(...v) : null
+  }
+  const byLabel = new Map<string, number>()
+  for (const c of known) {
+    const label = c.weather?.conditions
+    if (label) byLabel.set(label, (byLabel.get(label) ?? 0) + c.segment_mi)
   }
   let worst: Checkpoint | null = null
   for (const cp of checkpoints) {
@@ -29,6 +46,11 @@ export function routeConditions(checkpoints: Checkpoint[]): RouteConditions {
     maxGust: max((c) => c.weather?.gust_mph),
     maxRain: max((c) => c.weather?.rain_in_hr),
     maxSnow: max((c) => c.weather?.snow_in_hr),
+    minTemp: min((c) => c.weather?.temperature_f),
+    maxTemp: max((c) => c.weather?.temperature_f),
+    minVisibility: min((c) => c.weather?.visibility_mi),
+    maxPrecipChance: max((c) => c.weather?.precip_probability),
+    conditions: [...byLabel].map(([label, m]) => ({ label, miles: m })).sort((a, b) => b.miles - a.miles),
     worst,
   }
 }

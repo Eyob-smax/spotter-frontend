@@ -4,7 +4,13 @@ import { averageSpeed, corridorRiskAt, routeConditions, routeNote } from './summ
 
 const cp = (mile: number, risk: Checkpoint['risk'], wind = 10, extra: Partial<NonNullable<Checkpoint['weather']>> = {}): Checkpoint => ({
   index: 0, mile, segment_mi: 25, lat: 0, lon: 0, eta: '', progress: 0, risk, score: null, factors: [],
-  weather: risk === 'unknown' ? null : { wind_mph: wind, gust_mph: wind + 8, rain_in_hr: 0, snow_in_hr: 0, forecast_time: '', ...extra },
+  weather:
+    risk === 'unknown'
+      ? null
+      : {
+          wind_mph: wind, gust_mph: wind + 8, rain_in_hr: 0, snow_in_hr: 0, forecast_time: '',
+          temperature_f: 40 + wind, precip_probability: wind, visibility_mi: 10, weather_code: 2, conditions: 'Partly cloudy', ...extra,
+        },
 })
 
 const summary = (over: Partial<RouteSummary> = {}): RouteSummary => ({
@@ -32,6 +38,19 @@ describe('routeConditions', () => {
     const c = routeConditions([cp(0, 'low', 8), cp(25, 'high', 38, { rain_in_hr: 0.3 }), cp(50, 'moderate', 30, { snow_in_hr: 0.6 })])
     expect(c).toMatchObject({ maxWind: 38, maxGust: 46, maxRain: 0.3, maxSnow: 0.6 })
     expect(c.worst?.mile).toBe(25)
+  })
+
+  it('summarises temperature, visibility, chance and conditions', () => {
+    const c = routeConditions([
+      cp(0, 'low', 8, { visibility_mi: 9 }),
+      cp(25, 'moderate', 30, { conditions: 'Light rain', visibility_mi: 2.5 }),
+      cp(50, 'low', 10),
+    ])
+    expect(c).toMatchObject({ minTemp: 48, maxTemp: 70, minVisibility: 2.5, maxPrecipChance: 30 })
+    expect(c.conditions).toEqual([
+      { label: 'Partly cloudy', miles: 50 },
+      { label: 'Light rain', miles: 25 },
+    ])
   })
 
   it('has no worst checkpoint when the route is all Low', () => {
