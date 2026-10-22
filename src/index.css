@@ -65,6 +65,9 @@ hr { border: 0; height: 1px; background: var(--border); margin: 0 -20px; }
 }
 .topbar > * { pointer-events: auto; }
 .brand { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); text-decoration: none; }
+.topbar-actions { display: flex; gap: 8px; align-items: center; }
+.map-toggle { height: 40px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); backdrop-filter: blur(20px); font-size: 12.5px; }
+.map-toggle.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 .brand-mark { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); color: var(--accent-text); display: grid; place-items: center; }
 
 .side {
@@ -342,6 +345,8 @@ hr { border: 0; height: 1px; background: var(--border); margin: 0 -20px; }
 .cp-why .dot { width: 8px; height: 8px; margin-top: 5px; border-radius: 2px; flex: none; }
 .cp-foot { font-size: 11px; color: var(--text-3); }
 .maplibregl-ctrl-attrib { font-size: 10px; }
+
+.map.satellite ~ .topbar .brand { padding: 4px 10px 4px 4px; border-radius: 12px; background: var(--surface); backdrop-filter: blur(20px); }
 
 /* ------------------------------------------------------------------ route details */
 

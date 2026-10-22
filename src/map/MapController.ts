@@ -40,6 +40,7 @@ export class MapController {
   private readonly events: MapEvents
   private loaded = false
   private beforeLabels: string | undefined
+  private baseFills: string[] = []
   private generation = 0 // bumps on every reset; running animations stop when it changes
 
   private originMarker: maplibregl.Marker | null = null
@@ -111,7 +112,22 @@ export class MapController {
 
   private setupLayers(): void {
     const map = this.map
-    this.beforeLabels = map.getStyle().layers.find((l) => l.type === 'symbol')?.id
+    const baseLayers = map.getStyle().layers
+    this.beforeLabels = baseLayers.find((l) => l.type === 'symbol')?.id
+    // Flat land/water fills are hidden in satellite mode; roads and labels stay on top (hybrid view).
+    this.baseFills = baseLayers.filter((l) => l.type === 'fill' || l.type === 'background').map((l) => l.id)
+
+    map.addSource('satellite', {
+      type: 'raster',
+      tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+      tileSize: 256,
+      maxzoom: 19,
+      attribution: 'Imagery © Esri, Maxar, Earthstar Geographics',
+    })
+    map.addLayer(
+      { id: 'satellite', type: 'raster', source: 'satellite', layout: { visibility: 'none' }, paint: { 'raster-saturation': -0.25 } },
+      baseLayers[0]?.id === 'background' ? baseLayers[1]?.id : baseLayers[0]?.id,
+    )
     const empty: FeatureCollection = { type: 'FeatureCollection', features: [] }
 
     map.addSource('heat', { type: 'geojson', data: empty, promoteId: 'i' })
@@ -238,6 +254,14 @@ export class MapController {
     } else {
       this.meMarker.setLngLat([lon, lat])
     }
+  }
+
+  /** Switch between the light map and satellite imagery (with roads and place names kept on top). */
+  setSatellite(on: boolean): void {
+    if (!this.loaded) return
+    this.map.setLayoutProperty('satellite', 'visibility', on ? 'visible' : 'none')
+    for (const id of this.baseFills) this.map.setLayoutProperty(id, 'visibility', on ? 'none' : 'visible')
+    this.map.getContainer().classList.toggle('satellite', on)
   }
 
   setPickMode(kind: PointKind | null): void {

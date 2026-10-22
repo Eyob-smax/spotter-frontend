@@ -1,4 +1,4 @@
-import { CircleHelp, Truck } from 'lucide-react'
+import { CircleHelp, Map as MapIcon, Satellite, Truck } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { ApiError, api } from './api/client'
 import type { Interval, Place, Plan } from './api/types'
@@ -24,6 +24,7 @@ export default function App() {
   const [pick, setPick] = useState<PointKind | null>(null)
   const [locating, setLocating] = useState<PointKind | null>(null)
   const [howOpen, setHowOpen] = useState(false)
+  const [satellite, setSatellite] = useState(false)
   const mapEl = useRef<HTMLDivElement>(null)
   const originInput = useRef<HTMLInputElement>(null)
   const tripRef = useRef(trip)
@@ -308,9 +309,23 @@ export default function App() {
           <span className="brand-mark"><Truck size={16} /></span>
           Spotter Route
         </a>
-        <button type="button" className="square-btn" aria-label="How it works" onClick={() => setHowOpen(true)}>
-          <CircleHelp size={16} />
-        </button>
+        <div className="topbar-actions">
+          <button
+            type="button"
+            className={`pill-btn map-toggle${satellite ? ' on' : ''}`}
+            aria-pressed={satellite}
+            onClick={() => {
+              map?.setSatellite(!satellite)
+              setSatellite(!satellite)
+            }}
+          >
+            {satellite ? <MapIcon size={14} aria-hidden="true" /> : <Satellite size={14} aria-hidden="true" />}
+            {satellite ? 'Map' : 'Satellite'}
+          </button>
+          <button type="button" className="square-btn" aria-label="How it works" onClick={() => setHowOpen(true)}>
+            <CircleHelp size={16} />
+          </button>
+        </div>
       </header>
 
       {activePick && trip.phase === 'plan' && (
