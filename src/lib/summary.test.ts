@@ -115,10 +115,10 @@ describe('routeNote', () => {
 })
 
 describe('corridorRiskAt', () => {
-  it('describes calm and risky hours', () => {
+  it('reports the highest level on the corridor at that hour', () => {
     const scores = [[0.2, 2.4], [0.5, 0.1]]
-    expect(corridorRiskAt(scores, 0)).toBe('No weather risk along the corridor at this hour')
-    expect(corridorRiskAt(scores, 1)).toBe('Highest risk on the corridor: High')
-    expect(corridorRiskAt([[null]], 0)).toBe('No forecast for this hour')
+    expect(corridorRiskAt(scores, 0)).toEqual({ level: 'low', text: 'Calm: no weather risk along the corridor' })
+    expect(corridorRiskAt(scores, 1)).toEqual({ level: 'high', text: 'High weather on the corridor' })
+    expect(corridorRiskAt([[null]], 0)).toEqual({ level: 'unknown', text: 'No forecast for this hour' })
   })
 })

@@ -249,7 +249,9 @@ hr { border: 0; height: 1px; background: var(--border); margin: 0 -20px; }
   animation: slide-up 400ms var(--ease) both;
 }
 .play { width: 40px; height: 40px; flex: none; border-radius: 999px; border: 0; background: var(--accent); color: var(--accent-text); display: grid; place-items: center; }
-.clock { display: flex; flex-direction: column; gap: 2px; min-width: 118px; white-space: nowrap; }
+.clock { display: flex; flex-direction: column; gap: 4px; min-width: 118px; white-space: nowrap; }
+.corridor-pill { align-self: flex-start; display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px 4px 8px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border-strong); font-size: 12.5px; font-weight: 600; color: var(--text); }
+.corridor-pill i { width: 10px; height: 10px; border-radius: 999px; flex: none; box-shadow: 0 0 0 2px #fff; }
 .clock > div { display: flex; align-items: baseline; gap: 8px; }
 .clock-time { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
 .track-wrap { position: relative; flex: 1; min-width: 120px; height: 40px; }
@@ -314,7 +316,10 @@ hr { border: 0; height: 1px; background: var(--border); margin: 0 -20px; }
 .truck-active svg { filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35)); }
 .truck-parked { opacity: 0.55; }
 .truck-parked svg { transform: scale(0.85); }
-.truck.arrived { opacity: 0.35; }
+.truck.arrived { opacity: 0.45; }
+.truck.arrived.tagged { opacity: 1; }
+.truck-tag { position: absolute; top: 30px; left: 50%; transform: translateX(-50%); display: none; padding: 3px 8px; border-radius: 999px; background: var(--accent); color: var(--accent-text); font: 600 11px var(--sans); white-space: nowrap; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); animation: pop 240ms var(--ease) both; }
+.truck.tagged .truck-tag { display: block; }
 .truck-bubble { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); display: none; gap: 3px; padding: 5px 7px; border-radius: 999px; background: var(--text); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); }
 .truck.typing .truck-bubble { display: flex; }
 .truck-bubble i { width: 4px; height: 4px; border-radius: 999px; background: #fff; animation: dot 1s infinite; }
@@ -469,6 +474,7 @@ hr { border: 0; height: 1px; background: var(--border); margin: 0 -20px; }
   .sheet-full .forecast { display: none; }
   .forecast .clock { min-width: 92px; }
   .forecast .clock .hint { display: none; }
+  .corridor-pill { font-size: 11px; padding: 3px 8px 3px 6px; white-space: normal; }
   .legend { display: none; }
   .map-hint { margin-left: 0; top: 64px; }
   .maplibregl-ctrl-bottom-right { bottom: calc(var(--sheet-h, 50%) + 76px); transition: bottom 320ms var(--ease); }

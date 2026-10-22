@@ -144,13 +144,13 @@ export class MapController {
         source: 'heat',
         paint: {
           'circle-radius': 10,
-          'circle-blur': 1,
+          'circle-blur': 0.85,
           'circle-color': ['interpolate', ['linear'], ['max', ['coalesce', ['feature-state', 'score'], 0], 0], ...SCORE_RAMP],
           'circle-opacity': [
             'case',
             ['<', ['coalesce', ['feature-state', 'score'], -1], 0], 0,
-            // Calm weather stays transparent so only real weather shows on the map.
-            ['interpolate', ['linear'], ['feature-state', 'score'], 0, 0, 0.5, 0.06, 1, 0.3, 2, 0.42, 4, 0.55],
+            // Calm stretches get a soft tint so the overlay is always visible; risk gets strong colour.
+            ['interpolate', ['linear'], ['feature-state', 'score'], 0, 0.14, 0.9, 0.24, 1, 0.5, 2, 0.62, 4, 0.75],
           ],
           'circle-opacity-transition': { duration: 0 },
           'circle-color-transition': { duration: 0 },
@@ -666,7 +666,10 @@ export class MapController {
       const { point, bearing } = positionAtTime(route, elapsed)
       truck.marker.setLngLat(point)
       truck.el.setHeading(bearing)
-      truck.el.setState(route.id === this.selected ? 'active' : 'parked', elapsed >= route.duration_s)
+      const arrived = elapsed >= route.duration_s
+      truck.el.setState(route.id === this.selected ? 'active' : 'parked', arrived)
+      // Only the selected route's truck carries the tag: all three end at the same destination.
+      truck.el.setArrivalTag(arrived && route.id === this.selected ? `✓ Arrived ${formatTime(route.arrival_time)}` : null)
     }
   }
 

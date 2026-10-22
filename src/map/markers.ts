@@ -37,6 +37,8 @@ export interface TruckElement {
   setHeading(degrees: number): void
   setTyping(on: boolean): void
   setState(state: 'active' | 'parked', arrived: boolean): void
+  /** Show "✓ Arrived 18:22" under the truck, or hide it with null. */
+  setArrivalTag(text: string | null): void
 }
 
 // Top-down semi truck pointing north: cab at the top, trailer behind.
@@ -57,7 +59,9 @@ export function createTruck(initial: 'active' | 'parked'): TruckElement {
   const bubble = document.createElement('div')
   bubble.className = 'truck-bubble'
   bubble.innerHTML = '<i></i><i></i><i></i>'
-  root.append(body, bubble)
+  const tag = document.createElement('div')
+  tag.className = 'truck-tag'
+  root.append(body, bubble, tag)
   return {
     root,
     setHeading(degrees) {
@@ -70,6 +74,10 @@ export function createTruck(initial: 'active' | 'parked'): TruckElement {
       root.classList.toggle('truck-active', state === 'active')
       root.classList.toggle('truck-parked', state === 'parked')
       root.classList.toggle('arrived', arrived)
+    },
+    setArrivalTag(text) {
+      tag.textContent = text ?? ''
+      root.classList.toggle('tagged', !!text)
     },
   }
 }

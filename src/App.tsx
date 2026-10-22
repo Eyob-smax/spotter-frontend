@@ -434,6 +434,7 @@ export default function App() {
             heatmap={trip.heatmap}
             departure={trip.plan.departure_time}
             route={selectedRoute}
+            routes={trip.plan.routes}
             generatedAt={trip.analysis?.generated_at}
           />
           <Legend loadLb={trip.plan.load_weight_lb} />

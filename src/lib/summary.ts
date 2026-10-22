@@ -94,16 +94,16 @@ export function routeNote(routeId: string, routes: Route[], analysis: Analysis):
   return slower >= 60 ? `Same weather risk, ${formatDuration(slower)} slower` : 'Same weather risk and travel time'
 }
 
-/** Sentence for the forecast bar: what the overlay shows at a (fractional) hour. */
-export function corridorRiskAt(scores: (number | null)[][], hour: number): string {
+/** What the forecast overlay shows at a (fractional) hour: the highest risk level on the corridor. */
+export function corridorRiskAt(scores: (number | null)[][], hour: number): { level: RiskOrUnknown | null; text: string } {
   const h = Math.min(Math.max(Math.round(hour), 0), (scores[0]?.length ?? 1) - 1)
   let max = -1
   for (const row of scores) {
     const v = row[h]
     if (v != null && v > max) max = v
   }
-  if (max < 0) return 'No forecast for this hour'
-  if (max < 1) return 'No weather risk along the corridor at this hour'
+  if (max < 0) return { level: 'unknown', text: 'No forecast for this hour' }
+  if (max < 1) return { level: 'low', text: 'Calm: no weather risk along the corridor' }
   const level = (['low', 'moderate', 'high', 'severe', 'no_travel'] as const)[Math.min(4, Math.floor(max))]
-  return `Highest risk on the corridor: ${RISK_LABEL[level]}`
+  return { level, text: `${RISK_LABEL[level]} weather on the corridor` }
 }
