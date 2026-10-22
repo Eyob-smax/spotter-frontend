@@ -64,6 +64,31 @@ src/
 - **Code splitting:** MapLibre is in its own chunk; the app code is about 90 KB gzipped.
 - **Reduced motion is respected.** Animations collapse to their final state.
 
+## Design decisions
+
+### Why `useReducer` and not Redux or Zustand
+- **One reducer is enough.** The app is one screen with one flow (plan → search → results). A single reducer (`src/state/trip.ts`) describes every change as a named action, such as `routes-found`, `scored` and `search-failed`.
+- **That gives Redux's main benefit** (predictable, testable state changes) without another dependency, store setup or extra code.
+- **The fast-changing part lives outside React.** Map animation, trucks and the forecast slider run in `MapController`, so React never re-renders at 60 fps and no global store is needed for performance.
+- Redux pays off when many distant parts of a large app share and change the same data; this app doesn't have that.
+
+### Why reverse geocoding for map clicks and "Use my location"
+A map click or the browser's GPS position only gives coordinates. Reverse geocoding turns them into an address ("1437 N Bannock St, Denver, CO") for the input field and the route header. The request goes through the backend (`/api/geocode/reverse`), so the TomTom key never ships to the browser. Until the address arrives, the field shows the coordinates, which also stay as the label where there's no address, such as open water.
+
+### What affects the risk colours, and what doesn't
+Risk levels come from the backend and follow the brief's table: the **worst of wind, rain and snow**, raised by the load rules. Rain and snow change the colour; for example, 0.17 in/hr of rain is Moderate. **Temperature, visibility, chance of precipitation and the conditions text** are shown in the tiles, charts, readout, table and popover. They don't change the level, because the brief defines thresholds only for wind, rain and snow, and the other fields describe the same weather.
+
+### Why the map is driven imperatively
+MapLibre layers are updated directly by `MapController` instead of through React props. That covers the route draw-in, the testing truck, checkpoint colouring, and the slider's per-hour overlay blending. The slider only changes stored per-cell values on the map, with no data reload and no network call. That's what keeps the heatmap and the trucks smooth.
+
+### Why the weather overlay is circles, not a heatmap layer
+A MapLibre `heatmap` layer shows how *many* points are close together, which would make areas with more samples look risky. Each corridor cell is drawn as a blurred circle coloured by its own risk score, and calm cells are transparent, so the colour always means risk.
+
+### Why Vercel calls the API directly (no rewrite)
+- **Rate limiting needs real client IPs.** With a Vercel rewrite in between, the API would see only Vercel's IPs.
+- **Vercel's proxy timeout is too short** for the slowest cross-country route lookups (about 20 s).
+- So the browser calls `https://api.spotter.wearecerta.app` directly, and the backend's CORS list allows the Vercel origin.
+
 ## Deploy (Vercel)
 1. Import this repository in Vercel. It detects the Vite preset: build `pnpm build`, output `dist`.
 2. Set `VITE_API_URL` to the API's address, e.g. `https://api.spotter.wearecerta.app`.
