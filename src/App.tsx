@@ -8,6 +8,7 @@ import { Legend } from './components/Legend'
 import { LOAD_MAX, LOAD_MIN, MAX_DEPARTURE_DAYS, PlanPanel } from './components/PlanPanel'
 import { ResultsPanel } from './components/ResultsPanel'
 import { SearchPanel } from './components/SearchPanel'
+import { Sheet, type SnapPoint } from './components/Sheet'
 import { Toasts } from './components/Toasts'
 import { formatDuration, formatMiles, miles } from './lib/format'
 import { MapController, type PointKind } from './map/MapController'
@@ -28,6 +29,9 @@ export default function App() {
   const [howOpen, setHowOpen] = useState(false)
   const [satellite, setSatellite] = useState(false)
   const { toasts, notify, dismiss } = useToasts()
+  const isMobile = useMediaQuery('(max-width: 719px)')
+  const [sheetSnap, setSheetSnap] = useState<SnapPoint>('half')
+  const [sheetHeight, setSheetHeight] = useState(0)
   const mapEl = useRef<HTMLDivElement>(null)
   const originInput = useRef<HTMLInputElement>(null)
   const tripRef = useRef(trip)
@@ -313,8 +317,75 @@ export default function App() {
 
   const selectedRoute = trip.plan?.routes.find((r) => r.id === trip.selected)
 
+  // Mobile sheet: tell the map how much of the screen it covers, collapse it while
+  // picking a point on the map, and bring it back when a search starts or finishes.
+  useEffect(() => map?.setBottomInset(isMobile ? sheetHeight : null), [map, isMobile, sheetHeight])
+  const [sheetPhase, setSheetPhase] = useState(trip.phase)
+  if (trip.phase !== sheetPhase) {
+    setSheetPhase(trip.phase)
+    if (trip.phase !== 'plan') setSheetSnap('half')
+  }
+
+  const recommendation = trip.analysis?.recommendation
+  const recommended = trip.plan?.routes.find((r) => r.id === recommendation?.route_id)
+  const sheetSummary =
+    trip.phase === 'results' && recommended
+      ? `Route ${recommended.id} is safest · ${formatDuration(recommended.duration_s)} · ${formatMiles(miles(recommended.distance_m))}`
+      : trip.phase === 'search'
+        ? 'Testing routes…'
+        : trip.origin && trip.destination
+          ? `${trip.origin.label} → ${trip.destination.label}`
+          : 'Plan a safe trip'
+
+  const panel = (
+    <>
+        {trip.phase === 'plan' && (
+        <PlanPanel
+          trip={trip}
+          pickKind={activePick}
+          locating={locating}
+          originInputRef={originInput}
+          onPoint={setPoint}
+          onTogglePick={(kind) => {
+            const next = pick === kind ? null : kind
+            setPick(next)
+            if (next) setSheetSnap('peek') // uncover the map while picking a point
+          }}
+          onUseLocation={useMyLocation}
+          onSwap={() => dispatch({ type: 'swap' })}
+          onDeparture={(mode, date) => dispatch({ type: 'set-departure', mode, date })}
+          onLoad={(lb) => dispatch({ type: 'set-load', lb })}
+          onInterval={(interval) => dispatch({ type: 'set-interval', interval })}
+          onSubmit={submit}
+        />
+      )}
+      {trip.phase === 'search' && trip.search && (
+        <SearchPanel trip={trip} onCancel={cancel} onRetry={retry} onEdit={cancel} />
+      )}
+      {trip.phase === 'results' && trip.plan && trip.analysis && (
+        <ResultsPanel
+          trip={trip}
+          onEdit={cancel}
+          onSelect={(id) => dispatch({ type: 'select', routeId: id })}
+          onHover={(id) => dispatch({ type: 'hover', routeId: id })}
+          onInterval={(i) => void changeInterval(i)}
+          onFocusCheckpoint={(routeId, index) => map?.focusCheckpoint(routeId, index)}
+          onDepartLater={() => {
+            const later = new Date(Date.parse(trip.plan!.departure_time) + 6 * 3_600_000)
+            const next = { ...trip, departureMode: 'custom' as const, departure: later }
+            dispatch({ type: 'set-departure', mode: 'custom', date: later })
+            void startSearch(next)
+          }}
+        />
+      )}
+    </>
+  )
+
   return (
-    <main className="app">
+    <main
+      className={`app${isMobile ? ` sheet-${sheetSnap}` : ''}`}
+      style={isMobile ? ({ '--sheet-h': `${sheetHeight}px` } as React.CSSProperties) : undefined}
+    >
       <div ref={mapEl} className="map" aria-label="Map. Click to set points, right-click for options." role="application" />
 
       <header className="topbar">
@@ -347,43 +418,13 @@ export default function App() {
         </div>
       )}
 
-      <div className="side">
-        {trip.phase === 'plan' && (
-          <PlanPanel
-            trip={trip}
-            pickKind={activePick}
-            locating={locating}
-            originInputRef={originInput}
-            onPoint={setPoint}
-            onTogglePick={(kind) => setPick(pick === kind ? null : kind)}
-            onUseLocation={useMyLocation}
-            onSwap={() => dispatch({ type: 'swap' })}
-            onDeparture={(mode, date) => dispatch({ type: 'set-departure', mode, date })}
-            onLoad={(lb) => dispatch({ type: 'set-load', lb })}
-            onInterval={(interval) => dispatch({ type: 'set-interval', interval })}
-            onSubmit={submit}
-          />
-        )}
-        {trip.phase === 'search' && trip.search && (
-          <SearchPanel trip={trip} onCancel={cancel} onRetry={retry} onEdit={cancel} />
-        )}
-        {trip.phase === 'results' && trip.plan && trip.analysis && (
-          <ResultsPanel
-            trip={trip}
-            onEdit={cancel}
-            onSelect={(id) => dispatch({ type: 'select', routeId: id })}
-            onHover={(id) => dispatch({ type: 'hover', routeId: id })}
-            onInterval={(i) => void changeInterval(i)}
-            onFocusCheckpoint={(routeId, index) => map?.focusCheckpoint(routeId, index)}
-            onDepartLater={() => {
-              const later = new Date(Date.parse(trip.plan!.departure_time) + 6 * 3_600_000)
-              const next = { ...trip, departureMode: 'custom' as const, departure: later }
-              dispatch({ type: 'set-departure', mode: 'custom', date: later })
-              void startSearch(next)
-            }}
-          />
-        )}
-      </div>
+      {isMobile ? (
+        <Sheet snap={sheetSnap} onSnap={setSheetSnap} onHeight={setSheetHeight} summary={sheetSummary}>
+          {panel}
+        </Sheet>
+      ) : (
+        <div className="side">{panel}</div>
+      )}
 
       {trip.phase === 'results' && trip.plan && (
         <>
@@ -414,6 +455,17 @@ const ERROR_TITLES: Record<string, string> = {
   upstream_unavailable: 'A data service is unavailable',
   network: 'Can’t reach the server',
   timeout: 'The server took too long',
+}
+
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches)
+  useEffect(() => {
+    const list = window.matchMedia(query)
+    const onChange = () => setMatches(list.matches)
+    list.addEventListener('change', onChange)
+    return () => list.removeEventListener('change', onChange)
+  }, [query])
+  return matches
 }
 
 function errorTitle(error: ApiError): string {

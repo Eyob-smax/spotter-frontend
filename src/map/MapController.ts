@@ -57,6 +57,7 @@ export class MapController {
   private phase: Phase = 'idle'
   private selected: string | null = null
   private pickMode: PointKind | null = null
+  private bottomInset: number | null = null // mobile bottom sheet height, px
 
   private heat: Heatmap | null = null
   private heatFrame = 0
@@ -259,6 +260,11 @@ export class MapController {
     }
   }
 
+  /** Height of the mobile bottom sheet, so camera fits keep routes visible above it (null on desktop). */
+  setBottomInset(px: number | null): void {
+    this.bottomInset = px
+  }
+
   /** Switch between the light map and satellite imagery (with roads and place names kept on top). */
   setSatellite(on: boolean): void {
     if (!this.loaded) return
@@ -332,7 +338,7 @@ export class MapController {
     const { clientWidth: w, clientHeight: h } = this.map.getContainer()
     const mobile = w < 720
     const pad = mobile
-      ? { top: 70, right: 30, bottom: Math.round(h * 0.55) + 20, left: 30 }
+      ? { top: 70, right: 30, bottom: (this.bottomInset ?? Math.round(h * 0.5)) + 20, left: 30 }
       : { top: 90, right: 90, bottom: 150, left: 450 }
     // Never ask for more padding than the canvas has (MapLibre can't fit the bounds otherwise).
     const sx = Math.min(1, (w - 80) / (pad.left + pad.right))
