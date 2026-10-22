@@ -66,7 +66,7 @@ src/
 
 ## Deploy (Vercel)
 1. Import this repository in Vercel. It detects the Vite preset: build `pnpm build`, output `dist`.
-2. Set `VITE_API_URL` to the API's address, e.g. `https://api.164-90-224-22.sslip.io`.
+2. Set `VITE_API_URL` to the API's address, e.g. `https://api.spotter.wearecerta.app`.
 3. Add the Vercel URL to the backend's `CORS_ALLOWED_ORIGINS`.
 
 The browser calls the API directly, with no Vercel rewrite, so the API's rate limiting sees real client IPs.
