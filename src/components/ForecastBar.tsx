@@ -2,6 +2,7 @@ import { Pause, Play } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Heatmap, Route } from '../api/types'
 import { formatDayTime, formatTime } from '../lib/format'
+import { corridorRiskAt } from '../lib/summary'
 import type { MapController } from '../map/MapController'
 
 const HOURS = 48
@@ -55,7 +56,8 @@ export function ForecastBar({ map, heatmap, departure, route, generatedAt }: Pro
   }, [playing, update])
 
   const shown = startMs + hour * 3_600_000
-  const rel = Math.round((shown - departureMs) / 3_600_000)
+  // Hours since the departure hour (the slider starts at the top of that hour).
+  const rel = Math.round(hour)
   const pct = (hour / HOURS) * 100
   const windowLeft = Math.max(0, ((departureMs - startMs) / 3_600_000 / HOURS) * 100)
   const windowWidth = route ? Math.min(100 - windowLeft, (route.duration_s / 3600 / HOURS) * 100) : 0
@@ -83,7 +85,8 @@ export function ForecastBar({ map, heatmap, departure, route, generatedAt }: Pro
           <span className="mono muted small">{rel >= 0 ? `+${rel}h` : `${rel}h`}</span>
         </div>
         <span className="hint">
-          {heatmap ? (generatedAt ? `Forecast updated ${formatTime(generatedAt)}` : 'Hourly forecast') : 'Loading forecast…'}
+          {heatmap ? corridorRiskAt(heatmap.scores, hour) : 'Loading forecast…'}
+          {heatmap && generatedAt && ` · updated ${formatTime(generatedAt)}`}
         </span>
       </div>
       <div className="track-wrap">

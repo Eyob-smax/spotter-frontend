@@ -34,7 +34,7 @@ export function HowItWorks({ open, onClose }: { open: boolean; onClose: () => vo
         <li><b>Checkpoints</b> are placed every 10, 25 or 50 miles. Each one’s ETA comes from the route’s own travel times.</li>
         <li><b>Weather at the ETA:</b> the hourly forecast (Open-Meteo) for the hour the truck reaches each checkpoint.</li>
         <li><b>Risk</b> is the worst of wind, rain and snow, raised by the load rules below.</li>
-        <li><b>Recommendation:</b> fewest No-Travel miles, then fewest Severe, then fewest High, then lowest average risk, then shortest travel time.</li>
+        <li><b>Recommendation:</b> fewest No-Travel miles, then fewest Severe, then fewest High, then lowest average risk, then shortest travel time. Average risk is the mile-weighted mean of each checkpoint’s 0–4 score (0 = calm, 1 = Moderate threshold, 4 = No Travel), so even all-Low routes show how close they come to riskier weather.</li>
       </ol>
 
       {error && <p className="hint">Couldn’t load the rule table.</p>}

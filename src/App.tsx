@@ -8,12 +8,13 @@ import { Legend } from './components/Legend'
 import { LOAD_MAX, LOAD_MIN, MAX_DEPARTURE_DAYS, PlanPanel } from './components/PlanPanel'
 import { ResultsPanel } from './components/ResultsPanel'
 import { SearchPanel } from './components/SearchPanel'
+import { formatDuration, formatMiles, miles } from './lib/format'
 import { MapController, type PointKind } from './map/MapController'
 import { initialTrip, tripReducer, type TripState } from './state/trip'
 
 const MIN_STAGE_MS = 600 // keep fast stages on screen long enough to read
-const TEST_MS = 1300 // truck drive per route while the weather request is in flight
-const TEST_MS_FAST = 550 // ... once the weather has already arrived
+const TEST_MS = 2600 // truck drive per route while the weather request is in flight
+const TEST_MS_FAST = 1300 // ... once the weather has already arrived
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const coordsLabel = (lat: number, lon: number) => `${lat.toFixed(4)}, ${lon.toFixed(4)}`
 
@@ -283,6 +284,19 @@ export default function App() {
       trip.phase === 'search' ? 'Testing routes… · Spotter Route' : rec && trip.phase === 'results' ? `Route ${rec.route_id} is safest · Spotter Route` : 'Spotter Route'
   }, [trip.phase, trip.analysis])
 
+  // Route summary labels on the map ("A · 7h 33m · 435 mi", the safest one highlighted).
+  useEffect(() => {
+    if (!map || trip.phase !== 'results' || !trip.plan || !trip.analysis) return
+    const best = trip.analysis.recommendation
+    map.setRouteLabels(
+      trip.plan.routes.map((r) => ({
+        id: r.id,
+        text: `${r.id} · ${formatDuration(r.duration_s)} · ${formatMiles(miles(r.distance_m))}${r.id === best.route_id && !best.all_blocked ? '\nSAFEST' : ''}`,
+        highlight: r.id === best.route_id,
+      })),
+    )
+  }, [map, trip.phase, trip.plan, trip.analysis])
+
   const selectedRoute = trip.plan?.routes.find((r) => r.id === trip.selected)
 
   return (
@@ -332,6 +346,7 @@ export default function App() {
             onSelect={(id) => dispatch({ type: 'select', routeId: id })}
             onHover={(id) => dispatch({ type: 'hover', routeId: id })}
             onInterval={(i) => void changeInterval(i)}
+            onFocusCheckpoint={(routeId, index) => map?.focusCheckpoint(routeId, index)}
             onDepartLater={() => {
               const later = new Date(Date.parse(trip.plan!.departure_time) + 6 * 3_600_000)
               const next = { ...trip, departureMode: 'custom' as const, departure: later }

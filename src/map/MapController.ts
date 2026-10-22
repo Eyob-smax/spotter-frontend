@@ -10,7 +10,7 @@ import type { GeoJSONSource, MapMouseEvent } from 'maplibre-gl'
 // Import its URL explicitly so Vite serves it in dev and emits it in the build.
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import type { Checkpoint, Heatmap, Place, Route } from '../api/types'
-import { formatDayTime, formatMiles } from '../lib/format'
+import { formatDayTime, formatMiles, formatTime } from '../lib/format'
 import { RISK_COLOR, RISK_LABEL, SCORE_RAMP } from '../lib/risk'
 import { angleDelta, positionAtDistance, positionAtTime, revealGradient, riskGradient, unionBounds } from '../lib/route'
 import { createPin, createRadar, createTruck, type TruckElement } from './markers'
@@ -162,6 +162,45 @@ export class MapController {
     })
     map.on('mouseenter', 'checkpoints', () => (map.getCanvas().style.cursor = 'pointer'))
     map.on('mouseleave', 'checkpoints', () => this.updateCursor())
+
+    // ETA next to each checkpoint of the selected route (MapLibre hides labels that would collide).
+    map.addLayer({
+      id: 'checkpoint-labels',
+      type: 'symbol',
+      source: 'checkpoints',
+      filter: ['all', ['!', ['get', 'ghost']], ['has', 'eta']],
+      layout: {
+        visibility: 'none',
+        'text-field': ['get', 'eta'],
+        'text-font': ['Noto Sans Regular'],
+        'text-size': 11,
+        'text-offset': [0, 1.15],
+        'text-anchor': 'top',
+        'text-padding': 4,
+      },
+      paint: { 'text-color': INK, 'text-halo-color': '#FFFFFF', 'text-halo-width': 1.6 },
+    })
+
+    // One summary label per route ("A · 7h 33m · 435 mi"), the recommended one emphasised.
+    map.addSource('route-labels', { type: 'geojson', data: empty })
+    map.addLayer({
+      id: 'route-labels',
+      type: 'symbol',
+      source: 'route-labels',
+      layout: {
+        'text-field': ['get', 'text'],
+        'text-font': ['case', ['get', 'highlight'], ['literal', ['Noto Sans Bold']], ['literal', ['Noto Sans Regular']]],
+        'text-size': ['case', ['get', 'highlight'], 13, 11.5],
+        'text-anchor': 'center',
+        'text-allow-overlap': true,
+        'symbol-sort-key': ['case', ['get', 'highlight'], 1, 0],
+      },
+      paint: {
+        'text-color': ['case', ['get', 'highlight'], '#FFFFFF', INK],
+        'text-halo-color': ['case', ['get', 'highlight'], INK, '#FFFFFF'],
+        'text-halo-width': ['case', ['get', 'highlight'], 6, 2.5],
+      },
+    })
   }
 
   // ---------------------------------------------------------------- points
@@ -439,6 +478,7 @@ export class MapController {
     this.testTruck = null
     this.ghostRoutes.clear()
     this.phase = 'scored'
+    this.map.setLayoutProperty('checkpoint-labels', 'visibility', 'none')
     analysis.forEach((r) => this.checkpoints.set(r.id, r.checkpoints))
 
     for (const r of this.routes) {
@@ -457,7 +497,7 @@ export class MapController {
   private checkpointFeature(routeId: string, cp: Checkpoint): Feature {
     return {
       type: 'Feature',
-      properties: { ghost: false, route: routeId, index: cp.index, color: RISK_COLOR[cp.risk], risk: cp.risk },
+      properties: { ghost: false, route: routeId, index: cp.index, color: RISK_COLOR[cp.risk], risk: cp.risk, eta: formatTime(cp.eta) },
       geometry: { type: 'Point', coordinates: [cp.lon, cp.lat] },
     }
   }
@@ -481,6 +521,34 @@ export class MapController {
     }
     const cps = this.checkpoints.get(selected) ?? []
     this.setCheckpointFeatures(cps.map((cp) => this.checkpointFeature(selected, cp)))
+    this.map.setLayoutProperty('checkpoint-labels', 'visibility', 'visible')
+  }
+
+  /** Summary labels placed at the middle of each route. */
+  setRouteLabels(items: { id: string; text: string; highlight: boolean }[]): void {
+    if (!this.loaded) return
+    const features: Feature[] = []
+    for (const item of items) {
+      const route = this.routes.find((r) => r.id === item.id)
+      if (!route) continue
+      features.push({
+        type: 'Feature',
+        properties: { text: item.text, highlight: item.highlight },
+        geometry: { type: 'Point', coordinates: positionAtDistance(route, route.distance_m / 2).point },
+      })
+    }
+    this.setData('route-labels', { type: 'FeatureCollection', features })
+  }
+
+  /** Fly to a checkpoint and open its details (used by the checkpoint table). */
+  focusCheckpoint(routeId: string, index: number): void {
+    const cp = this.checkpoints.get(routeId)?.find((c) => c.index === index)
+    if (!cp) return
+    // Place the checkpoint above-centre (and right of the side panel on desktop) so its popover fits.
+    const mobile = this.map.getContainer().clientWidth < 720
+    const offset: [number, number] = mobile ? [0, -140] : [210, -150]
+    this.map.flyTo({ center: [cp.lon, cp.lat], zoom: Math.max(this.map.getZoom(), 7.5), offset, duration: this.duration(900), essential: true })
+    this.openCheckpoint(routeId, index)
   }
 
   // ---------------------------------------------------------------- checkpoint popover
@@ -491,7 +559,7 @@ export class MapController {
     this.closePopup()
     this.popup = new maplibregl.Popup({ closeButton: true, maxWidth: '300px', offset: 10, className: 'popup-checkpoint' })
       .setLngLat([cp.lon, cp.lat])
-      .setDOMContent(checkpointCard(routeId, cp))
+      .setDOMContent(checkpointCard(routeId, cp, this.routes.find((r) => r.id === routeId)))
       .addTo(this.map)
   }
 
@@ -582,6 +650,8 @@ export class MapController {
     this.phase = 'idle'
     if (!this.loaded) return
     this.setData('crow', null)
+    this.setData('route-labels', null)
+    this.map.setLayoutProperty('checkpoint-labels', 'visibility', 'none')
     this.setCheckpointFeatures([])
     this.removeRouteLayers()
     this.setHeatmap(null)
@@ -632,7 +702,7 @@ export class MapController {
   }
 }
 
-function checkpointCard(routeId: string, cp: Checkpoint): HTMLElement {
+function checkpointCard(routeId: string, cp: Checkpoint, route: Route | undefined): HTMLElement {
   const el = (tag: string, className?: string, text?: string) => {
     const node = document.createElement(tag)
     if (className) node.className = className
@@ -657,6 +727,11 @@ function checkpointCard(routeId: string, cp: Checkpoint): HTMLElement {
   }
   const etaIn = Math.round((Date.parse(cp.eta) - Date.now()) / 60_000)
   row('ETA', formatDayTime(cp.eta), etaIn > 0 ? `(in ${etaIn >= 60 ? `${Math.floor(etaIn / 60)}h ${etaIn % 60}m` : `${etaIn} min`})` : undefined)
+  if (route) {
+    const total = route.distance_m / 1609.344
+    row('Trip', `mile ${Math.round(cp.mile)} of ${Math.round(total)}`, `(${Math.round(cp.progress * 100)}%) · covers ${formatMiles(cp.segment_mi)}`)
+  }
+  if (cp.score != null) row('Score', `${cp.score.toFixed(2)} / 4`, `(${RISK_LABEL[cp.risk]})`)
   if (cp.weather) {
     row('Wind', `${Math.round(cp.weather.wind_mph)} mph`, cp.weather.gust_mph != null ? `gusts ${Math.round(cp.weather.gust_mph)} mph` : undefined)
     row('Rain', `${cp.weather.rain_in_hr.toFixed(2)} in/hr`)

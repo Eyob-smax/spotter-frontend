@@ -1,9 +1,12 @@
-import { ArrowLeft, Check, ChevronDown, CircleSlash, Info, Route as RouteIcon, Star } from 'lucide-react'
+import { ArrowLeft, Check, ChevronDown, CircleSlash, Info, MessageSquareText, Route as RouteIcon, Star, Wind } from 'lucide-react'
 import { useState } from 'react'
 import type { Analysis, Criterion, Interval, Route } from '../api/types'
-import { formatDayTime, formatDuration, formatExtra, formatMiles, miles } from '../lib/format'
+import { formatDayTime, formatDuration, formatExtra, formatMiles, formatTime, miles } from '../lib/format'
+import { RISK_LABEL } from '../lib/risk'
 import { riskSegments } from '../lib/route'
+import { averageSpeed, routeConditions, routeNote } from '../lib/summary'
 import type { TripState } from '../state/trip'
+import { RouteWeather } from './RouteWeather'
 import { Segmented } from './Segmented'
 import { TripHeader } from './TripHeader'
 
@@ -14,6 +17,7 @@ interface Props {
   onHover: (id: string | null) => void
   onInterval: (interval: Interval) => void
   onDepartLater: () => void
+  onFocusCheckpoint: (routeId: string, index: number) => void
 }
 
 const CRITERIA: { id: Criterion; label: string; format: (v: number | null) => string }[] = [
@@ -24,7 +28,7 @@ const CRITERIA: { id: Criterion; label: string; format: (v: number | null) => st
   { id: 'duration_s', label: 'Travel time', format: (v) => formatDuration(v ?? 0) },
 ]
 
-export function ResultsPanel({ trip, onEdit, onSelect, onHover, onInterval, onDepartLater }: Props) {
+export function ResultsPanel({ trip, onEdit, onSelect, onHover, onInterval, onDepartLater, onFocusCheckpoint }: Props) {
   const [why, setWhy] = useState(false)
   const plan = trip.plan!
   const analysis = trip.analysis!
@@ -87,6 +91,8 @@ export function ResultsPanel({ trip, onEdit, onSelect, onHover, onInterval, onDe
           const s = result.summary
           const selected = trip.selected === route.id
           const extra = route.duration_s - fastest
+          const wx = routeConditions(result.checkpoints)
+          const note = routeNote(route.id, plan.routes, analysis)
           return (
             <button
               key={route.id}
@@ -115,7 +121,10 @@ export function ResultsPanel({ trip, onEdit, onSelect, onHover, onInterval, onDe
                 )}
               </span>
               <span className="mono muted small">
-                {formatDuration(route.duration_s)} · {formatMiles(miles(route.distance_m))} · arrives {formatDayTime(route.arrival_time)}
+                {formatDuration(route.duration_s)} · {formatMiles(miles(route.distance_m))} · avg {Math.round(averageSpeed(route))} mph
+              </span>
+              <span className="mono muted small">
+                departs {formatDayTime(route.departure_time)} → arrives {formatDayTime(route.arrival_time)}
               </span>
               <span className="strip" aria-hidden="true">
                 {riskSegments(result.checkpoints).map((seg, i) => (
@@ -129,10 +138,37 @@ export function ResultsPanel({ trip, onEdit, onSelect, onHover, onInterval, onDe
                 <Stat label="Avg risk" value={s.avg_risk == null ? '—' : s.avg_risk.toFixed(2)} />
                 {s.unknown_count > 0 && <Stat label="No forecast" value={`${s.unknown_count} pts`} />}
               </span>
+              {wx.maxWind != null && (
+                <span className="conditions">
+                  <Wind size={13} aria-hidden="true" />
+                  <span>
+                    Max wind <b className="mono">{Math.round(wx.maxWind)} mph</b>
+                    {wx.maxGust != null && <> (gusts <b className="mono">{Math.round(wx.maxGust)}</b>)</>} · rain{' '}
+                    <b className="mono">{(wx.maxRain ?? 0).toFixed(2)}</b> · snow <b className="mono">{(wx.maxSnow ?? 0).toFixed(2)}</b> in/hr
+                    {wx.worst && (
+                      <>
+                        {' '}· worst: <b>{RISK_LABEL[wx.worst.risk]}</b> at mile {Math.round(wx.worst.mile)} ({formatTime(wx.worst.eta)})
+                      </>
+                    )}
+                  </span>
+                </span>
+              )}
+              <span className={`route-note${route.id === rec.route_id ? ' best' : ''}`}>
+                <MessageSquareText size={13} aria-hidden="true" />
+                <span>{note}</span>
+              </span>
             </button>
           )
         })}
       </div>
+
+      {trip.selected && byId.get(trip.selected) && summaries.get(trip.selected) && (
+        <RouteWeather
+          route={byId.get(trip.selected)!}
+          checkpoints={summaries.get(trip.selected)!.checkpoints}
+          onFocus={(index) => onFocusCheckpoint(trip.selected!, index)}
+        />
+      )}
 
       <div className="row-between">
         <span className="eyebrow">Checkpoints every</span>
