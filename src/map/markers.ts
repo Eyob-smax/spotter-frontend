@@ -8,6 +8,18 @@ export function createPin(kind: 'origin' | 'destination'): HTMLElement {
   return el
 }
 
+/** Small, non-interactive place label with a dot, e.g. the Spotter HQ landmark. */
+export function createPlaceLabel(text: string): HTMLElement {
+  const el = document.createElement('div')
+  el.className = 'place-label'
+  el.setAttribute('aria-hidden', 'true')
+  const label = document.createElement('span')
+  label.textContent = text
+  const dot = document.createElement('i')
+  el.append(label, dot)
+  return el
+}
+
 export function createRadar(): HTMLElement {
   const el = document.createElement('div')
   el.className = 'radar'

@@ -97,6 +97,14 @@ describe('routeNote', () => {
     expect(routeNote('B', routes, a)).toBe('Same weather risk, 32 min slower')
   })
 
+  it('treats nearly equal average risk as equal weather', () => {
+    const a = analysis('A', [
+      { id: 'A', checkpoints: [cp(0, 'low')], summary: summary({ avg_risk: 0.23 }) },
+      { id: 'B', checkpoints: [cp(0, 'low')], summary: summary({ avg_risk: 0.35 }) },
+    ])
+    expect(routeNote('B', routes, a)).toBe('Same weather risk, 32 min slower')
+  })
+
   it('mentions higher average risk', () => {
     const a = analysis('A', [
       { id: 'A', checkpoints: [cp(0, 'low')], summary: summary({ avg_risk: 0.1 }) },

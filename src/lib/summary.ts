@@ -2,6 +2,9 @@ import type { Analysis, Checkpoint, RiskOrUnknown, Route, RouteSummary } from '.
 import { formatDuration, formatMiles, miles } from './format'
 import { RISK_LABEL } from './risk'
 
+/** Same rule as the backend ranking: average risks this close count as equal. */
+export const AVG_RISK_TOLERANCE = 0.25
+
 const LEVEL_RANK: Record<RiskOrUnknown, number> = { unknown: -1, low: 0, moderate: 1, high: 2, severe: 3, no_travel: 4 }
 
 export interface RouteConditions {
@@ -82,7 +85,7 @@ export function routeNote(routeId: string, routes: Route[], analysis: Analysis):
   if (s.no_travel_mi > b.no_travel_mi) return `Blocked: ${formatMiles(s.no_travel_mi)} of No-Travel conditions${where('no_travel')}`
   if (s.severe_mi > b.severe_mi) return `${formatMiles(s.severe_mi)} of severe risk${where('severe')}`
   if (s.high_mi > b.high_mi) return `${formatMiles(s.high_mi)} of high risk${where('high')}`
-  if ((s.avg_risk ?? 0) > (b.avg_risk ?? 0) + 0.005) {
+  if ((s.avg_risk ?? 0) - (b.avg_risk ?? 0) >= AVG_RISK_TOLERANCE) {
     return `Higher average risk: ${(s.avg_risk ?? 0).toFixed(2)} vs ${(b.avg_risk ?? 0).toFixed(2)}`
   }
   const me = routes.find((r) => r.id === routeId)

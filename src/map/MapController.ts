@@ -11,9 +11,10 @@ import type { GeoJSONSource, MapMouseEvent } from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import type { Checkpoint, Heatmap, Place, Route } from '../api/types'
 import { formatDayTime, formatMiles, formatTime } from '../lib/format'
+import { SPOTTER_HQ } from '../lib/places'
 import { RISK_COLOR, RISK_LABEL, SCORE_RAMP } from '../lib/risk'
 import { angleDelta, positionAtDistance, positionAtTime, revealGradient, riskGradient, unionBounds } from '../lib/route'
-import { createPin, createRadar, createTruck, type TruckElement } from './markers'
+import { createPin, createPlaceLabel, createRadar, createTruck, type TruckElement } from './markers'
 
 maplibregl.setWorkerUrl(workerUrl)
 
@@ -68,8 +69,8 @@ export class MapController {
     this.map = new maplibregl.Map({
       container,
       style: STYLE_URL,
-      center: [-98.5, 39.5],
-      zoom: 3.4,
+      center: [SPOTTER_HQ.lon, SPOTTER_HQ.lat],
+      zoom: 6.5,
       minZoom: 2,
       maxZoom: 15,
       dragRotate: false,
@@ -94,6 +95,9 @@ export class MapController {
         resolve()
       })
     })
+    new maplibregl.Marker({ element: createPlaceLabel(SPOTTER_HQ.label), anchor: 'bottom' })
+      .setLngLat([SPOTTER_HQ.lon, SPOTTER_HQ.lat])
+      .addTo(this.map)
     this.map.on('click', (e) => this.handleClick(e))
     // Keep the trip in view when the viewport changes (rotation, window resize).
     let resizeTimer = 0

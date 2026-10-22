@@ -1,6 +1,7 @@
 import { ArrowRight, ArrowUpDown, CalendarClock, Info, Weight } from 'lucide-react'
 import { useState } from 'react'
 import type { Interval, Place } from '../api/types'
+import { SPOTTER_HQ } from '../lib/places'
 import { timeZoneLabel, toLocalInput } from '../lib/format'
 import type { TripState } from '../state/trip'
 import { PlaceField } from './PlaceField'
@@ -55,7 +56,7 @@ export function PlanPanel(props: Props) {
           <PlaceField
             kind="origin"
             value={trip.origin}
-            near={trip.destination}
+            near={trip.destination ?? SPOTTER_HQ}
             inputRef={props.originInputRef}
             onChange={(p) => props.onPoint('origin', p)}
             picking={props.pickKind === 'origin'}
@@ -67,7 +68,7 @@ export function PlanPanel(props: Props) {
           <PlaceField
             kind="destination"
             value={trip.destination}
-            near={trip.origin}
+            near={trip.origin ?? SPOTTER_HQ}
             onChange={(p) => props.onPoint('destination', p)}
             picking={props.pickKind === 'destination'}
             onTogglePick={() => props.onTogglePick('destination')}
