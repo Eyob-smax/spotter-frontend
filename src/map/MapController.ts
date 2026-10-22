@@ -182,8 +182,40 @@ export class MapController {
         'circle-stroke-width': 1.5,
       },
     })
-    map.on('mouseenter', 'checkpoints', () => (map.getCanvas().style.cursor = 'pointer'))
-    map.on('mouseleave', 'checkpoints', () => this.updateCursor())
+    // Hover ring on the checkpoint under the pointer (filter updated on mousemove).
+    map.addLayer({
+      id: 'checkpoint-hover',
+      type: 'circle',
+      source: 'checkpoints',
+      filter: ['==', ['get', 'index'], -1],
+      paint: {
+        'circle-radius': 8,
+        'circle-color': ['get', 'color'],
+        'circle-stroke-color': INK,
+        'circle-stroke-width': 2.5,
+      },
+    })
+    // Invisible, finger-sized click target around every checkpoint.
+    map.addLayer({
+      id: 'checkpoint-hit',
+      type: 'circle',
+      source: 'checkpoints',
+      filter: ['!', ['get', 'ghost']],
+      paint: { 'circle-radius': 14, 'circle-color': '#000', 'circle-opacity': 0 },
+    })
+    map.on('mousemove', 'checkpoint-hit', (e) => {
+      if (this.pickMode) return
+      map.getCanvas().style.cursor = 'pointer'
+      const f = e.features?.[0]
+      const filter: maplibregl.FilterSpecification = f
+        ? ['all', ['==', ['get', 'index'], Number(f.properties.index)], ['==', ['get', 'route'], String(f.properties.route)]]
+        : ['==', ['get', 'index'], -1]
+      map.setFilter('checkpoint-hover', filter)
+    })
+    map.on('mouseleave', 'checkpoint-hit', () => {
+      map.setFilter('checkpoint-hover', ['==', ['get', 'index'], -1])
+      this.updateCursor()
+    })
 
     // ETA next to each checkpoint of the selected route (MapLibre hides labels that would collide).
     map.addLayer({
@@ -289,8 +321,8 @@ export class MapController {
   private handleClick(e: MapMouseEvent): void {
     this.closePopup()
     if (this.loaded) {
-      const hit = this.map.queryRenderedFeatures(e.point, { layers: ['checkpoints', ...this.routeLayerIds()] })
-      const checkpoint = hit.find((f) => f.layer.id === 'checkpoints' && !f.properties.ghost)
+      const hit = this.map.queryRenderedFeatures(e.point, { layers: ['checkpoint-hit', ...this.routeLayerIds()] })
+      const checkpoint = hit.find((f) => f.layer.id === 'checkpoint-hit' && !f.properties.ghost)
       if (checkpoint && !this.pickMode) {
         this.openCheckpoint(String(checkpoint.properties.route), Number(checkpoint.properties.index))
         return
@@ -519,7 +551,7 @@ export class MapController {
     analysis.forEach((r) => this.checkpoints.set(r.id, r.checkpoints))
 
     for (const r of this.routes) {
-      this.map.setPaintProperty(`route-line-${r.id}`, 'line-gradient', riskGradient(this.checkpoints.get(r.id) ?? []))
+      this.map.setPaintProperty(`route-line-${r.id}`, 'line-gradient', riskGradient(this.checkpoints.get(r.id) ?? [], r))
       this.map.setPaintProperty(`route-line-${r.id}`, 'line-width', 4)
       this.map.setPaintProperty(`route-line-${r.id}`, 'line-opacity', 1)
     }

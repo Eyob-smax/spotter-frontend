@@ -68,17 +68,55 @@ export function unionBounds(routes: Route[]): [number, number, number, number] {
 }
 
 /**
+ * Cumulative Web-Mercator length per vertex, normalised to 0–1. MapLibre's
+ * `line-progress` measures distance along the line in projected (Mercator)
+ * units, which stretch with latitude, so it differs from road miles on long
+ * north–south trips. Converting through this keeps colours aligned with checkpoints.
+ */
+export function mercatorFractions(coords: LngLat[]): number[] {
+  const project = ([lon, lat]: LngLat): [number, number] => {
+    const phi = (Math.max(Math.min(lat, 85), -85) * Math.PI) / 180
+    return [(lon + 180) / 360, (1 - Math.log(Math.tan(phi) + 1 / Math.cos(phi)) / Math.PI) / 2]
+  }
+  const out = [0]
+  let prev = project(coords[0])
+  for (let i = 1; i < coords.length; i++) {
+    const p = project(coords[i])
+    out.push(out[i - 1] + Math.hypot(p[0] - prev[0], p[1] - prev[1]))
+    prev = p
+  }
+  const total = out[out.length - 1] || 1
+  return out.map((v) => v / total)
+}
+
+/** `line-progress` value (0–1) at a road distance along the route, in metres. */
+export function lineProgressAtDistance(route: Route, meters: number, fractions = mercatorFractions(route.geometry.coordinates)): number {
+  const d = route.cumulative.distance_m
+  const i = bracket(d, meters)
+  const span = d[i + 1] - d[i]
+  const f = span > 0 ? Math.min(Math.max((meters - d[i]) / span, 0), 1) : 0
+  return fractions[i] + (fractions[Math.min(i + 1, fractions.length - 1)] - fractions[i]) * f
+}
+
+/**
  * MapLibre `line-gradient` expression colouring a route by checkpoint risk.
  * Each checkpoint owns the stretch halfway to its neighbours (same rule the
- * backend uses for "miles at risk"), so the line matches the risk strip.
+ * backend uses for "miles at risk"), so the line matches the risk strip and
+ * the dots. With `route`, boundaries are placed in MapLibre's own line-progress
+ * space (see mercatorFractions); without it, the road-distance fraction is used.
  */
-export function riskGradient(checkpoints: Checkpoint[]): ExpressionSpecification {
+export function riskGradient(checkpoints: Checkpoint[], route?: Route): ExpressionSpecification {
   if (checkpoints.length === 0) return ['step', ['line-progress'], RISK_COLOR.unknown, 0.5, RISK_COLOR.unknown]
+  const fractions = route ? mercatorFractions(route.geometry.coordinates) : null
+  const at = (a: Checkpoint, b: Checkpoint) =>
+    route && fractions
+      ? lineProgressAtDistance(route, ((a.mile + b.mile) / 2) * 1609.344, fractions)
+      : (a.progress + b.progress) / 2
   const expr: unknown[] = ['step', ['line-progress'], RISK_COLOR[checkpoints[0].risk]]
   let last = 0
   for (let i = 1; i < checkpoints.length; i++) {
-    const boundary = (checkpoints[i - 1].progress + checkpoints[i].progress) / 2
-    if (boundary <= last) continue // stops must strictly increase
+    const boundary = at(checkpoints[i - 1], checkpoints[i])
+    if (boundary <= last || boundary >= 1) continue // stops must strictly increase within (0, 1)
     expr.push(boundary, RISK_COLOR[checkpoints[i].risk])
     last = boundary
   }

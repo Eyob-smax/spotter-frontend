@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Checkpoint, Route } from '../api/types'
 import { RISK_COLOR } from './risk'
-import { angleDelta, bearing, bracket, expectedCheckpoints, positionAtTime, revealGradient, riskGradient, riskSegments, unionBounds } from './route'
+import { angleDelta, bearing, bracket, expectedCheckpoints, lineProgressAtDistance, mercatorFractions, positionAtTime, revealGradient, riskGradient, riskSegments, unionBounds } from './route'
 
 const route = (coords: [number, number][], times: number[], bbox: Route['bbox'] = [0, 0, 1, 1]): Route => ({
   id: 'A',
@@ -108,5 +108,29 @@ describe('expectedCheckpoints matches the backend sampling rule', () => {
     [0.3, 50, 2],
   ])('%d mi every %d mi → %d', (len, interval, n) => {
     expect(expectedCheckpoints(len, interval)).toBe(n)
+  })
+})
+
+describe('line-progress alignment', () => {
+  it('mercator fractions match plain distance on an east–west line', () => {
+    const f = mercatorFractions([[0, 10], [1, 10], [2, 10]])
+    expect(f[1]).toBeCloseTo(0.5, 6)
+  })
+
+  it('a north–south line stretches toward the pole, so half the distance is not half the progress', () => {
+    // 30°N → 60°N in two equal-latitude legs: the northern leg is longer in Mercator units.
+    const f = mercatorFractions([[0, 30], [0, 45], [0, 60]])
+    expect(f[1]).toBeLessThan(0.45)
+  })
+
+  it('places checkpoint boundaries in line-progress space', () => {
+    const r = route([[0, 30], [0, 45], [0, 60]], [0, 1, 2])
+    r.cumulative.distance_m = [0, 1609.344 * 100, 1609.344 * 200] // 200 road miles, split evenly by latitude
+    const mid = lineProgressAtDistance(r, 1609.344 * 100)
+    expect(mid).toBeCloseTo(mercatorFractions(r.geometry.coordinates)[1], 6)
+    const cps = [{ ...cp(0, 'low'), mile: 0 }, { ...cp(0.5, 'no_travel'), mile: 100 }, { ...cp(1, 'low'), mile: 200 }]
+    const expr = riskGradient(cps, r) as unknown[]
+    expect(expr[3]).toBeCloseTo(lineProgressAtDistance(r, 1609.344 * 50), 6)
+    expect(expr[5]).toBeCloseTo(lineProgressAtDistance(r, 1609.344 * 150), 6)
   })
 })

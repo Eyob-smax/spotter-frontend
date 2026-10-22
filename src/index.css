@@ -272,6 +272,7 @@ hr { border: 0; height: 1px; background: var(--border); margin: 0 -20px; }
 .legend-head { display: flex; justify-content: space-between; align-items: center; border: 0; background: none; padding: 0; color: var(--text-2); }
 .legend ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
 .legend li { display: flex; align-items: center; gap: 8px; }
+.legend-tip { color: var(--text); font-weight: 500; }
 .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; flex: none; vertical-align: -1px; }
 .swatch.hatch { background: repeating-linear-gradient(45deg, #9a9a9a 0 2px, transparent 2px 4px) !important; border: 1px solid #9a9a9a; }
 

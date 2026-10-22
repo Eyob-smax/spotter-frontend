@@ -22,6 +22,7 @@ export function Legend({ loadLb }: { loadLb: number }) {
             ))}
           </ul>
           <p className="hint">Overlay = risk for a {formatLb(loadLb)} load at that hour</p>
+          <p className="hint legend-tip">Click a checkpoint for its weather details</p>
         </>
       )}
     </aside>
