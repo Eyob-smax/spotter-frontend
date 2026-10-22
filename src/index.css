@@ -469,7 +469,5 @@ hr { border: 0; height: 1px; background: var(--border); margin: 0 -20px; }
   .legend { display: none; }
   .map-hint { margin-left: 0; top: 64px; }
   .maplibregl-ctrl-bottom-right { bottom: calc(var(--sheet-h, 50%) + 76px); transition: bottom 320ms var(--ease); }
-  .sheet-peek .maplibregl-ctrl-bottom-right { bottom: calc(var(--sheet-h, 50%) + 76px); }
   .clock-time { font-size: 15px; }
-}
 }
