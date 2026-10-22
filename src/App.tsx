@@ -13,8 +13,8 @@ import { MapController, type PointKind } from './map/MapController'
 import { initialTrip, tripReducer, type TripState } from './state/trip'
 
 const MIN_STAGE_MS = 600 // keep fast stages on screen long enough to read
-const TEST_MS = 2600 // truck drive per route while the weather request is in flight
-const TEST_MS_FAST = 1300 // ... once the weather has already arrived
+const TEST_MS = 4500 // truck drive per route while the weather request is in flight
+const TEST_MS_FAST = 3000 // ... once the weather has already arrived
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const coordsLabel = (lat: number, lon: number) => `${lat.toFixed(4)}, ${lon.toFixed(4)}`
 

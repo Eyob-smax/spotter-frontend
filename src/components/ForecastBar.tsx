@@ -6,7 +6,7 @@ import { corridorRiskAt } from '../lib/summary'
 import type { MapController } from '../map/MapController'
 
 const HOURS = 48
-const HOURS_PER_SECOND = 1 // playback: one forecast hour per second
+const HOURS_PER_SECOND = 0.5 // playback: one forecast hour every two seconds
 
 interface Props {
   map: MapController | null

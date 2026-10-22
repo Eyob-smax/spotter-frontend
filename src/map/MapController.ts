@@ -22,7 +22,8 @@ const UNTESTED = '#8C8C8C'
 const INK = '#0A0A0A'
 const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 4)
-const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
+// Gentle start and stop with a near-steady middle, so the truck reads as driving, not darting.
+const easeInOut = (t: number) => -(Math.cos(Math.PI * t) - 1) / 2
 
 export type PointKind = 'origin' | 'destination'
 
